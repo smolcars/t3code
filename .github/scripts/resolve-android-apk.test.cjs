@@ -26,10 +26,7 @@ test("rejects missing or ambiguous build results", () => {
 
 test("rejects unfinished builds and results from another platform", () => {
   for (const status of ["IN_QUEUE", "IN_PROGRESS", "ERRORED", "CANCELED"]) {
-    assert.throws(
-      () => resolveAndroidApkBuild([{ ...build, status }], commit),
-      /did not finish/,
-    );
+    assert.throws(() => resolveAndroidApkBuild([{ ...build, status }], commit), /did not finish/);
   }
   assert.throws(
     () => resolveAndroidApkBuild([{ ...build, platform: "IOS" }], commit),
@@ -48,10 +45,7 @@ test("rejects builds from a different or unspecified commit", () => {
 
 test("requires an identified build and an HTTPS artifact", () => {
   assert.throws(() => resolveAndroidApkBuild([{ ...build, id: null }], commit), /ID/);
-  assert.throws(
-    () => resolveAndroidApkBuild([{ ...build, artifacts: {} }], commit),
-    /APK URL/,
-  );
+  assert.throws(() => resolveAndroidApkBuild([{ ...build, artifacts: {} }], commit), /APK URL/);
   assert.throws(
     () =>
       resolveAndroidApkBuild(
