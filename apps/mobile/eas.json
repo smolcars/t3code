@@ -57,7 +57,8 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "credentialsSource": "local"
     },
     "github-release": {
       "extends": "production",
@@ -66,7 +67,8 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "credentialsSource": "local"
     },
     "v2-preview": {
       "extends": "production",
