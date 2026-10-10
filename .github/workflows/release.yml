@@ -689,6 +689,17 @@ jobs:
       resource_key: win32-arm64
       cli_archive: true
 
+  android_apk:
+    name: Build Android APK
+    needs: [preflight]
+    uses: ./.github/workflows/release-android.yml
+    with:
+      ref: ${{ needs.preflight.outputs.ref }}
+      version: ${{ needs.preflight.outputs.version }}
+      release_channel: ${{ needs.preflight.outputs.release_channel }}
+    secrets:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
   # npm gets the same bytes as the GitHub Release: the launcher plus one
   # package per CLI archive. Preview publishes too, under the `preview`
   # dist-tag, which nothing resolves unless asked for by name.
@@ -940,6 +951,31 @@ jobs:
           files: ${{ steps.release_files.outputs.files }}
           fail_on_unmatched_files: true
           token: ${{ github.token }}
+
+  publish_android_apk:
+    name: Attach Android APK to GitHub Release
+    needs: [preflight, android_apk, release]
+    if: ${{ !cancelled() && needs.android_apk.result == 'success' && needs.android_apk.outputs.available == 'true' && needs.release.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download signed Android APK
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.android_apk.outputs.artifact_name }}
+          path: android-assets
+
+      - name: Verify and upload APK
+        working-directory: android-assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          sha256sum --check ./*.apk.sha256
+          gh release upload "$RELEASE_TAG" ./*.apk ./*.apk.sha256 --clobber
 
   publish_aur:
     name: Publish AUR package

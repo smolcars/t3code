@@ -49,6 +49,25 @@
         "image": "macos-tahoe-26.6-xcode-27.1"
       }
     },
+    "github-nightly": {
+      "extends": "preview",
+      "autoIncrement": true,
+      "env": {
+        "T3CODE_MOBILE_UPDATES_ENABLED": "0"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "github-release": {
+      "extends": "production",
+      "env": {
+        "T3CODE_MOBILE_UPDATES_ENABLED": "0"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "v2-preview": {
       "extends": "production",
       "distribution": "store",

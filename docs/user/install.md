@@ -121,6 +121,13 @@ shows these links as QR codes in **Settings → General → Mobile app**.
   Google account, open the [Google Play testing page](https://play.google.com/apps/testing/com.t3tools.t3code)
   and become a tester.
 
+Android APKs are also available as assets on [GitHub Releases](https://github.com/pingdotgg/t3code/releases).
+Download the APK from the stable release or nightly you want, allow installation from your browser
+when Android asks, and install it. Nightly APKs use a separate app identity and can coexist with
+the stable app. Install newer APKs manually to update; these builds do not receive over-the-air updates.
+A GitHub APK may use a different signing certificate from Google Play. If Android refuses to update
+your store install, switching requires uninstalling it first, which removes its saved connections.
+
 If the app crashes during launch, open Settings → Diagnostics on the next launch
 that succeeds. It lists startup crashes from the last 7 days with the error and
 component stack that store crash reports leave out. Copy the report and paste it

@@ -2,7 +2,7 @@
 
 > For maintainers. Using T3 Code? See [docs/user](../user/).
 
-This document covers the unified release workflow for stable and nightly desktop releases.
+This document covers the unified release workflow for stable and nightly desktop releases and Android APKs.
 
 ## What the workflow does
 
@@ -36,6 +36,15 @@ This document covers the unified release workflow for stable and nightly desktop
   - Only plain stable `X.Y.Z` releases are marked as the repository's latest release.
   - Nightly runs are always GitHub prereleases and never marked latest.
   - Automatically generated release notes are pinned to the previous tag in the same channel, so stable compares to the previous stable tag and nightly compares to the previous nightly tag.
+- Builds a signed Android APK through EAS alongside the desktop jobs, using the same release commit.
+  The APK and its SHA-256 sidecar are attached after the GitHub Release publishes. EAS queue time or
+  an Android failure does not block desktop publication. APKs disable OTA updates and use the
+  `github-release` (production) or `github-nightly` (preview) profile; they are not submitted to Play.
+  Configure `EXPO_TOKEN` and signing credentials in the EAS project before enabling builds. Without
+  the token, the Android job reports a skip. Compare the EAS and Play signing certificates before
+  promising that APKs can update store installs.
+  Run `release-android.yml` manually to test either profile without publishing; it saves an Actions
+  artifact. Rerun only a failed upload job to reuse the signed artifact without another EAS build.
 - Includes Electron auto-update metadata (for example `latest*.yml`, `nightly*.yml`, and `*.blockmap`) in release assets.
 - Builds a self-contained CLI archive per platform (`t3-<version>-<platform>-<arch>.tar.gz`, `.zip` on Windows) in the same job as that target's desktop artifact and attaches them to the GitHub Release with a `SHA256SUMS` file, on every channel, for five targets: macOS arm64, Linux x64 and arm64, Windows x64 and arm64. Every archive is built, signed, and smoke-tested on hardware of its own architecture. There is no macOS x64 archive: Node single-executables are unsupported on x64 macOS (the SEA docs list macOS as arm64 only) and the binary segfaults on start; the x64 desktop app is Electron and unaffected.
   - The archive holds the server as a Node single-executable (`scripts/build-cli-archive.ts`), so unpacking it needs neither Node, npm, nor a compiler. It is the only form in which T3 Code manages a runtime: the desktop's SSH environments, the boot service, `t3 update`, and the install scripts all download and verify this archive against `SHA256SUMS`. The npm packages exist for people who run `npx t3` or `npm install -g t3` themselves and carry the same archive contents; nothing in the product installs from npm. The `curl | sh` installers are `scripts/install.sh` and `scripts/install.ps1`; the marketing site copies them into its `public/` at build time (`apps/marketing/scripts/stage-install-scripts.mjs`) and serves them at `t3.codes/install.sh` and `/install.ps1`.
