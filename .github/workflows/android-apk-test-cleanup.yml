@@ -1,0 +1,74 @@
+name: Stop extra APK test and retry upload
+
+on:
+  push:
+    branches: [test/android-apk-cleanup]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Cancel only the extra stable EAS test
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          async function query(query, variables = {}) {
+            const response = await fetch('https://api.expo.dev/graphql', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.EXPO_TOKEN}` },
+              body: JSON.stringify({ query, variables }),
+            });
+            assert(response.ok, `Expo HTTP ${response.status}`);
+            const result = await response.json();
+            assert(!result.errors, JSON.stringify(result.errors));
+            return result.data;
+          }
+          const result = await query('query { app { byId(appId: "d12f2a36-5af9-4669-a39a-3f6a8b0f27f1") { builds(offset: 0, limit: 10) { id status platform buildProfile gitCommitHash appIdentifier } } } }');
+          assert(Array.isArray(result.app.byId.builds));
+          const builds = result.app.byId.builds.filter(build =>
+            build.platform === 'ANDROID' && build.buildProfile === 'github-release' &&
+            build.gitCommitHash === '0efa63aa508708bb6546feb28faa01eab4be85fc' &&
+            build.appIdentifier === 'com.t3tools.t3code.apk.test' &&
+            ['NEW', 'IN_QUEUE', 'IN_PROGRESS'].includes(build.status));
+          assert(builds.length <= 1, 'Ambiguous stable test build; refusing to cancel');
+          for (const build of builds) {
+            const canceled = await query('mutation Cancel($id: ID!) { build { cancelBuild(buildId: $id) { id status } } }', { id: build.id });
+            assert.equal(canceled.build.cancelBuild.id, build.id);
+            assert(['CANCELED', 'PENDING_CANCEL', 'FINISHED', 'ERRORED'].includes(canceled.build.cancelBuild.status));
+            console.log(`Stable EAS test ${build.id}: ${canceled.build.cancelBuild.status}`);
+          }
+          if (!builds.length) console.log('No active stable test build remains.');
+          NODE
+
+      - name: Stop the original GitHub test run
+        run: |
+          gh api "repos/$GH_REPO/actions/runs/38095352864" > "$RUNNER_TEMP/original-run.json"
+          jq -e '.head_sha == "0efa63aa508708bb6546feb28faa01eab4be85fc" and .head_branch == "test/android-release-apks"' "$RUNNER_TEMP/original-run.json"
+          if jq -e '.status == "in_progress" or .status == "queued"' "$RUNNER_TEMP/original-run.json" >/dev/null; then
+            gh api --method POST "repos/$GH_REPO/actions/runs/38095352864/cancel"
+          fi
+
+      - name: Reuse the existing nightly APK
+        uses: actions/download-artifact@v8
+        with:
+          name: android-apk-nightly
+          path: android-assets
+          run-id: 38095352864
+          github-token: ${{ github.token }}
+
+      - name: Verify checksum and retry the same release upload
+        working-directory: android-assets
+        run: |
+          sha256sum --check ./*.apk.sha256
+          gh release upload apk-ci-test-1 ./*.apk ./*.apk.sha256 --clobber
+          gh release view apk-ci-test-1 --json assets --jq '.assets[] | {name, size}'
